@@ -1,71 +1,45 @@
-const mongoose = require("mongoose");
-const documentcommerciauxSchema = new mongoose.Schema(
-    {
-        typeDocument: {
-            type: String,
-            enum: ["DEVIS", "FACTURE"],
-            default: "FACTURE"
-        },
-        statut: {
-            type: String,
-            enum: ["EN_ATTENTE", "APPROUVE", "REFUSE"],
-            default: "EN_ATTENTE"
-        },
-        dateCreation: {
-            type: Date,
-            default: Date.now
-        },
-        dateValidation: {
-            type: Date
-        },
-        montantHT: {
-            type: Number
-        },
-        tva: {
-            type: Number
-        },
-        montantTTC: {
-            type: Number,
-            required: true
-        },
-        pdfPath: {
-            type: String
-        },
-        clientId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Client",
-            required: true
-        },
-        agentId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Agent"
-        },
-        serviceId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Pack"
-        },
-        templateId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "TemplateDocument"
-        },
-        reference: {
-            type: String,
-            unique: true
-        },
-        statutPaiement: {
-            type: String,
-            enum: ["SANS_OBJET", "NON_PAYE", "EN_ATTENTE", "PAYE"],
-            default: "NON_PAYE"
-        },
-        datePaiement: {
-            type: Date
-        },
-        commentaire: {
-            type: String
-        }
+const mongoose = require('mongoose');
+
+const DocumentCommerciauxSchema = new mongoose.Schema({
+    reference: { type: String, required: true, unique: true }, // e.g., FCT-2026/0001
+    typeDocument: { type: String, enum: ['DEVIS', 'FACTURE'], required: true },
+
+    clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true },
+    agentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Can be Agent or Admin
+
+    date: { type: Date, default: Date.now },
+    valideJusquAu: { type: Date }, // For DEVIS
+
+    items: [{
+        reference: String,
+        description: String,
+        quantite: { type: Number, default: 1 },
+        prixUnitaire: Number,
+        totalHT: Number
+    }],
+
+    montantHT: { type: Number, required: true },
+    tva: { type: Number, default: 0 }, // Percentage
+    montantTTC: { type: Number, required: true },
+
+    statut: {
+        type: String,
+        enum: ['EN_ATTENTE', 'APPROUVE', 'REFUSE', 'PAYE', 'ANNULE'],
+        default: 'EN_ATTENTE'
     },
-    {
-        timestamps: true
+
+    pdfPath: { type: String }, // Path to generated PDF
+
+    // Specific fields for the Layout
+    clientDetailsSnapshot: {
+        nom: String,
+        entreprise: String,
+        adresse: String,
+        matricule: String,
+        rib: String, // "Client is the one who write his rib" -> Stored here at generation time
+        email: String,
+        telephone: String
     }
-);
-module.exports = mongoose.model("documentCommerciaux", documentcommerciauxSchema);
+}, { timestamps: true });
+
+module.exports = mongoose.model('DocumentCommerciaux', DocumentCommerciauxSchema);

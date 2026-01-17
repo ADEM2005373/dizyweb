@@ -14,9 +14,8 @@
             <th>Client</th>
             <th>Email</th>
             <th>Matricule Fiscale</th>
-            <th>Agent</th>
-            <th>Statut</th>
-            <th>Actions</th>
+              <th>Role</th>
+              <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -38,17 +37,13 @@
                 </span>
             </td>
             <td>
-              <span :class="['badge', user.isApproved ? 'active' : 'pending']">
-                {{ user.isApproved ? 'Actif' : 'En attente' }}
-              </span>
-            </td>
-            <td>
-              <div class="actions">
-                  <button v-if="!user.isApproved" @click="toggleApprove(user)" class="btn-icon check" title="Approuver">✅</button>
-                  <button v-else @click="toggleApprove(user)" class="btn-icon ban" title="Désactiver">🚫</button>
+                <div class="actions">
+                   <button @click="openEditModal(user)" class="btn-icon edit" title="Modifier">
+                    <PencilIcon class="h-5 w-5" />
+                  </button>
                   <button @click="openLoginInfo(user)" class="btn-icon info" title="Infos Connexion">🔑</button>
                   <button @click="remove(user._id)" class="btn-icon trash" title="Supprimer">🗑️</button>
-              </div>
+               </div>
             </td>
           </tr>
         </tbody>
@@ -114,9 +109,11 @@
 
 <script>
 import axios from 'axios';
+import { PencilIcon } from '@heroicons/vue/24/outline';
 
 export default {
   name: 'AdminUsers',
+  components: { PencilIcon },
   data() {
     return {
       clients: [],

@@ -38,7 +38,7 @@ const userSchema = new mongoose.Schema(
     },
     isApproved: {
       type: Boolean,
-      default: false
+      default: true
     },
     agentPrincipal: {
       type: mongoose.Schema.Types.ObjectId,

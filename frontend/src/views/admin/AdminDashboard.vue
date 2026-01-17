@@ -17,18 +17,14 @@
         <li :class="{ active: current === 'agents' }" @click="current='agents'" class="nav-item">
           <UserGroupIcon class="h-5 w-5" /> Agents
         </li>
-        <li :class="{ active: current === 'templates' }" @click="current='templates'" class="nav-item">
-          <DocumentTextIcon class="h-5 w-5" /> Templates Docs
-        </li>
+
         <li :class="{ active: current === 'packs' }" @click="current='packs'" class="nav-item">
           <CubeIcon class="h-5 w-5" /> Offres & Packs
         </li>
         <li :class="{ active: current === 'profile' }" @click="current='profile'" class="nav-item">
           <Cog6ToothIcon class="h-5 w-5" /> Paramètres
         </li>
-        <li :class="{ active: current === 'demandes' }" @click="current='demandes'" class="nav-item">
-          <DocumentDuplicateIcon class="h-5 w-5" /> Demandes Docs
-        </li>
+
       </nav>
 
       <div class="logout-area">
@@ -62,18 +58,18 @@
 </template>
 
 <script>
-import { ChartBarIcon, UsersIcon, UserGroupIcon, DocumentTextIcon, CubeIcon, Cog6ToothIcon, DocumentDuplicateIcon } from '@heroicons/vue/24/outline';
+import { ChartBarIcon, UsersIcon, UserGroupIcon, CubeIcon, Cog6ToothIcon } from '@heroicons/vue/24/outline';
 import AdminStats from './AdminStats.vue'
 import AdminUsers from './AdminUsers.vue'
 import AdminAgents from './AdminAgents.vue'
 import AdminPacks from './AdminPacks.vue'
 import AdminProfile from './AdminProfile.vue'
-import AdminDemandes from './AdminDemandes.vue'
-import AdminTemplates from './AdminTemplates.vue'
+// import AdminDemandes from './AdminDemandes.vue'
+// import AdminTemplates from './AdminTemplates.vue'
 
 export default {
   name: 'AdminDashboard',
-  components: { AdminStats, AdminUsers, AdminAgents, AdminPacks, AdminProfile, AdminDemandes, AdminTemplates, ChartBarIcon, UsersIcon, UserGroupIcon, DocumentTextIcon, CubeIcon, Cog6ToothIcon, DocumentDuplicateIcon },
+  components: { AdminStats, AdminUsers, AdminAgents, AdminPacks, AdminProfile, ChartBarIcon, UsersIcon, UserGroupIcon, CubeIcon, Cog6ToothIcon },
   data() {
     return {
       current: 'stats'
@@ -86,8 +82,6 @@ export default {
         case 'agents': return 'AdminAgents'
         case 'packs': return 'AdminPacks'
         case 'profile': return 'AdminProfile'
-        case 'demandes': return 'AdminDemandes'
-        case 'templates': return 'AdminTemplates'
         default: return 'AdminStats'
       }
     }

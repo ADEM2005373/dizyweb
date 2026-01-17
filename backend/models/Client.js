@@ -17,8 +17,12 @@ const clientSchema = new mongoose.Schema({
         required: false,
         trim: true,
         unique: true,
-        sparse: true // Allow unique index to ignore null/missing values
+        sparse: true
     },
+    adresse: { type: String, default: '' },
+    codePostal: { type: String, default: '' },
+    ville: { type: String, default: '' },
+    rib: { type: String, default: '' },
     // agentPrincipal inherited from User schema
     socialLinks: {
         facebook: { type: String, default: '' },

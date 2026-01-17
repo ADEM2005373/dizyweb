@@ -40,7 +40,7 @@ const getAdminEmail = async () => {
 exports.register = async (req, res) => {
   console.log('[REGISTRATION] Register function called with:', req.body);
   try {
-    const { nom, prenom, email, motDePasse, entreprise, secteur, matriculeFiscale } = req.body;
+    const { nom, prenom, email, motDePasse, entreprise, secteur, matriculeFiscale, adresse, codePostal, ville, telephone } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -57,15 +57,19 @@ exports.register = async (req, res) => {
       entreprise,
       secteur,
       matriculeFiscale,
-      isApproved: false
+      adresse,
+      codePostal,
+      ville,
+      telephone,
+      isApproved: true
     });
 
-    // Send notification to Admin
+    // Send notification to Admin (Information only)
     console.log('[REGISTRATION] About to send email notification...');
     try {
       const adminEmail = await getAdminEmail();
       console.log(`[REGISTRATION] Sending notification to admin email: ${adminEmail}`);
-      
+
       if (!adminEmail || !adminEmail.trim()) {
         console.warn('[REGISTRATION] Warning: Admin email is empty');
       }
@@ -83,7 +87,7 @@ Informations du client :
 - Secteur : ${secteur}
 - Matricule Fiscale : ${matriculeFiscale}
 
-Veuillez valider cette inscription dans le panneau d'administration.`,
+Le compte a été créé et activé automatiquement.`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #333;">Nouvelle demande d'inscription client</h2>
@@ -101,7 +105,7 @@ Veuillez valider cette inscription dans le panneau d'administration.`,
               </ul>
             </div>
             
-            <p style="color: #d9534f;"><strong>Action requise :</strong> Veuillez valider cette inscription dans le panneau d'administration.</p>
+            <p style="color: #28a745;"><strong>Statut :</strong> Compte activé automatiquement.</p>
             
             <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
             <p style="color: #777; font-size: 12px;">Cet email a été envoyé automatiquement par le système DIZY.</p>
@@ -132,7 +136,7 @@ Veuillez valider cette inscription dans le panneau d'administration.`,
     }
 
     return res.status(201).json({
-      message: "Compte client créé, en attente de validation",
+      message: "Compte client créé avec succès",
       clientId: client._id
     });
   } catch (error) {
@@ -161,11 +165,10 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: "Mot de passe incorrect" });
     }
 
-    // Check approval status (except for admins)
-    const roleLower = user.role ? user.role.toLowerCase() : "";
-    if (roleLower !== 'admin' && !user.isApproved) {
-      return res.status(403).json({ message: "Compte non validé par l'administrateur" });
-    }
+    // Check approval status (REMOVED as per user request)
+    // if (roleLower !== 'admin' && !user.isApproved) {
+    //   return res.status(403).json({ message: "Compte non validé par l'administrateur" });
+    // }
 
     // Generate Token (Normalize role to lowercase for frontend/middleware consistency)
     const normalizedRole = user.role ? user.role.toLowerCase() : "";

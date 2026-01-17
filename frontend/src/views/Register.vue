@@ -37,6 +37,27 @@
         </div>
 
         <div class="form-group">
+          <label>Adresse Complète</label>
+          <input v-model="form.adresse" placeholder="12 Rue example" class="glass-input" required />
+        </div>
+
+        <div class="row">
+          <div class="form-group half">
+            <label>Code Postal</label>
+            <input v-model="form.codePostal" placeholder="75000" class="glass-input" required />
+          </div>
+          <div class="form-group half">
+             <label>Ville</label>
+             <input v-model="form.ville" placeholder="Paris" class="glass-input" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Téléphone</label>
+          <input v-model="form.telephone" placeholder="+33 6 12 34 56 78" class="glass-input" required />
+        </div>
+
+        <div class="form-group">
           <label>Email Professionnel</label>
           <input v-model="form.email" type="email" placeholder="john@example.com" required class="glass-input" />
         </div>
@@ -73,7 +94,11 @@ const form = ref({
   motDePasse: '',
   entreprise: '',
   secteur: '',
-  matriculeFiscale: ''
+  matriculeFiscale: '',
+  adresse: '',
+  codePostal: '',
+  ville: '',
+  telephone: ''
 });
 
 const loading = ref(false);
@@ -87,9 +112,9 @@ const register = async () => {
 
   try {
     await axios.post('http://localhost:5000/api/auth/register', form.value);
-    successMessage.value = 'Compte créé avec succès ! En attente de validation par un administrateur.';
+    successMessage.value = 'Compte créé avec succès ! Connectez-vous maintenant.';
     // Clear form
-    form.value = { nom: '', prenom: '', email: '', motDePasse: '', entreprise: '', secteur: '', matriculeFiscale: '' };
+    form.value = { nom: '', prenom: '', email: '', motDePasse: '', entreprise: '', secteur: '', matriculeFiscale: '', adresse: '', codePostal: '', ville: '', telephone: '' };
   } catch (error) {
     errorMessage.value = error.response?.data?.message || 'Erreur lors de l\'inscription.';
   } finally {

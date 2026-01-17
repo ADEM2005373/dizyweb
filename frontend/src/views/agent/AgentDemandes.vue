@@ -1,306 +1,218 @@
 <template>
-  <div class="agent-demandes">
-    <div class="header-split">
-      <div>
-        <h2>Demandes de Documents</h2>
-        <p class="subtitle">Approuvez ou refusez les demandes de devis et factures de vos clients.</p>
-      </div>
-    </div>
-
-    <!-- TABS -->
-    <div class="tabs glass">
-      <button :class="['tab-btn', activeTab === 'pending' ? 'active' : '']" @click="activeTab = 'pending'">
-        À Valider
-      </button>
-      <button :class="['tab-btn', activeTab === 'history' ? 'active' : '']" @click="activeTab = 'history'">
-        Historique
+  <div class="demandes-page">
+    <div class="header-action">
+      <h2>Gestion Facturation</h2>
+      <button class="btn btn-primary" @click="openCreateModal">
+        <PlusIcon class="h-5 w-5" /> Nouvelle Facture
       </button>
     </div>
 
-    <div class="tab-content">
-      <div v-if="loading" class="loading">Chargement...</div>
-      
-      <div v-else-if="filteredDocs.length === 0" class="empty-state card glass">
-        <p>Aucune demande {{ activeTab === 'pending' ? 'en attente' : 'dans l\'historique' }}.</p>
-      </div>
+    <!-- DOCUMENT LIST -->
+    <div class="documents-grid">
+       <div v-for="doc in documents" :key="doc._id" class="doc-card glass">
+          <div class="doc-header">
+             <span class="doc-ref">{{ doc.reference }}</span>
+             <span class="badg" :class="doc.typeDocument">{{ doc.typeDocument }}</span>
+          </div>
+          <div class="doc-body">
+             <h4>{{ doc.clientId?.entreprise || doc.clientId?.nom }}</h4>
+             <p class="amount">{{ doc.montantTTC.toFixed(2) }} TND</p>
+             <p class="date">{{ new Date(doc.createdAt).toLocaleDateString() }}</p>
+          </div>
+          <div class="doc-actions">
+             <a :href="'http://localhost:5000' + doc.pdfPath" target="_blank" class="btn-icon">
+                <ArrowDownTrayIcon class="h-5 w-5" /> Télécharger
+             </a>
+             <button @click="deleteDoc(doc._id)" class="btn-icon danger">
+                <TrashIcon class="h-5 w-5" />
+             </button>
+          </div>
+       </div>
+    </div>
 
-      <div v-else class="docs-list">
-        <div v-for="doc in filteredDocs" :key="doc._id" class="card glass doc-item">
-          <div class="doc-type-icon">
-            <DocumentTextIcon v-if="doc.typeDocument === 'FACTURE'" class="h-6 w-6" />
-            <DocumentIcon v-else class="h-6 w-6" />
-          </div>
-          <div class="doc-info">
-            <div class="doc-main">
-              <h4>
-                <span v-if="doc.reference" class="ref-badge">{{ doc.reference }}</span>
-                {{ doc.typeDocument }} 
-                <span v-if="doc.commentaire?.includes('COMMANDE PACK')" class="pack-tag">Livrable</span>
-                - {{ doc.clientId?.entreprise }}
-              </h4>
-              <span class="doc-date">Le {{ formatDate(doc.createdAt) }}</span>
-            </div>
-            <div class="doc-details">
-              <span class="amount">{{ doc.montantTTC }} €</span>
-              <span class="client-name"><UserIcon class="h-4 w-4 inline" /> {{ doc.clientId?.prenom }} {{ doc.clientId?.nom }}</span>
-            </div>
-            <p class="comment" v-if="doc.commentaire">"{{ doc.commentaire }}"</p>
-          </div>
+    <!-- CREATE MODAL -->
+    <div v-if="showModal" class="modal-overlay">
+       <div class="modal-content glass">
+          <h3>Créer un Document</h3>
           
-          <div class="doc-status" v-if="activeTab === 'history'">
-            <span :class="['status-pill', doc.statut.toLowerCase()]">{{ doc.statut }}</span>
-            <span v-if="doc.statutPaiement && doc.statutPaiement !== 'SANS_OBJET'" :class="['payment-pill', doc.statutPaiement.toLowerCase()]">
-              {{ doc.statutPaiement === 'PAYE' ? 'Payé' : 'Non Payé' }}
-            </span>
-          </div>
-
-          <div class="doc-actions" v-if="activeTab === 'pending'">
-            <button @click="openApprovalModal(doc)" class="btn btn-sm btn-success"><CheckIcon class="h-4 w-4 inline mr-1" /> Approuver</button>
-            <button @click="updateStatus(doc._id, 'REFUSE')" class="btn btn-sm btn-danger"><XMarkIcon class="h-4 w-4 inline mr-1" /> Refuser</button>
-          </div>
-
-          <div class="doc-actions" v-if="activeTab === 'history'">
-            <a v-if="doc.pdfPath" :href="'http://localhost:5000' + doc.pdfPath" target="_blank" class="btn btn-sm btn-primary"><FolderIcon class="h-4 w-4 inline mr-1" /> Voir PDF</a>
-            <button v-if="doc.typeDocument === 'FACTURE' && doc.statutPaiement === 'NON_PAYE'" 
-              @click="markAsPaid(doc._id)" class="btn btn-sm btn-success"><CurrencyEuroIcon class="h-4 w-4 inline mr-1" /> Marquer Payé</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- APPROVAL MODAL -->
-    <div v-if="showApprovalModal" class="modal-overlay">
-      <div class="modal-content glass">
-        <h3>Finaliser l'approbation</h3>
-        <p class="subtitle">Confirmez les détails financiers et le template pour générer le PDF.</p>
-        
-        <form @submit.prevent="confirmApproval">
-          <div class="form-row">
-            <div class="form-group half">
-              <label>Montant HT (€)</label>
-              <input type="number" v-model="approvalForm.montantHT" step="0.01" @input="calcTTC" class="glass-input" required>
-            </div>
-            <div class="form-group half">
-              <label>TVA (%)</label>
-              <input type="number" v-model="approvalForm.tva" @input="calcTTC" class="glass-input" required>
-            </div>
-          </div>
-
           <div class="form-group">
-            <label>Montant TTC (€)</label>
-            <input type="number" v-model="approvalForm.montantTTC" step="0.01" @input="calcHT" class="glass-input" required>
+             <label>Client</label>
+             <select v-model="form.clientId" class="glass-input">
+                <option v-for="c in clients" :value="c._id" :key="c._id">
+                   {{ c.entreprise }} ({{ c.nom }} {{ c.prenom }})
+                </option>
+             </select>
           </div>
 
-          <div class="form-group">
-            <label>Modèle de Document (Template)</label>
-            <select v-model="approvalForm.templateId" class="glass-input" required>
-              <option v-for="tpl in templates" :key="tpl._id" :value="tpl._id">
-                {{ tpl.nomTemplate }}
-              </option>
-            </select>
+          <div class="form-group half">
+             <label>Type</label>
+             <select v-model="form.typeDocument" class="glass-input">
+                <option value="FACTURE">Facture</option>
+                <option value="DEVIS">Devis</option>
+             </select>
+          </div>
+
+          <!-- ITEMS -->
+          <div class="items-section">
+             <h4>Prestations</h4>
+             <div v-for="(item, index) in form.items" :key="index" class="item-row">
+                <input v-model="item.reference" placeholder="Ref" class="glass-input small">
+                <input v-model="item.description" placeholder="Description" class="glass-input wide">
+                <input type="number" v-model.number="item.quantite" placeholder="Qty" class="glass-input tiny">
+                <input type="number" v-model.number="item.prixUnitaire" placeholder="Prix HT" class="glass-input small">
+                <button @click="removeItem(index)" class="btn-text damage">X</button>
+             </div>
+             <button @click="addItem" class="btn-text">+ Ajouter ligne</button>
+          </div>
+
+          <div class="totals-section">
+             <label>TVA (%) <input type="number" v-model.number="form.tva" class="glass-input tiny"></label>
+             <p>Total HT: {{ totalHT }}</p>
+             <p class="total-big">Total TTC: {{ totalTTC }}</p>
           </div>
 
           <div class="modal-actions">
-            <button type="button" @click="showApprovalModal = false" class="btn btn-secondary">Annuler</button>
-            <button type="submit" class="btn btn-success" :disabled="approving">
-              {{ approving ? 'Génération...' : 'Approuver & Générer PDF' }}
-            </button>
+             <button @click="showModal = false" class="btn btn-secondary">Annuler</button>
+             <button @click="createDocument" class="btn btn-success" :disabled="loading">
+                {{ loading ? 'Génération...' : 'Créer & Générer PDF' }}
+             </button>
           </div>
-        </form>
-      </div>
+
+       </div>
     </div>
+
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
-import { 
-  DocumentTextIcon, 
-  DocumentIcon, 
-  UserIcon, 
-  CheckIcon, 
-  XMarkIcon, 
-  FolderIcon, 
-  CurrencyEuroIcon 
-} from '@heroicons/vue/24/outline';
+import { PlusIcon, ArrowDownTrayIcon, TrashIcon } from '@heroicons/vue/24/outline';
 
-const user = ref({});
-const docs = ref([]);
-const activeTab = ref('pending');
-const loading = ref(true);
-const templates = ref([]);
-const showApprovalModal = ref(false);
-const approving = ref(false);
-const currentDoc = ref(null);
-const approvalForm = ref({
-  montantHT: 0,
-  tva: 20,
-  montantTTC: 0,
-  templateId: null
+const documents = ref([]);
+const clients = ref([]);
+const showModal = ref(false);
+const loading = ref(false);
+
+const form = ref({
+  clientId: '',
+  typeDocument: 'FACTURE',
+  tva: 19,
+  items: [{ reference: '', description: '', quantite: 1, prixUnitaire: 0 }]
+});
+
+// Computed Totals
+const totalHT = computed(() => {
+   return form.value.items.reduce((acc, i) => acc + (i.quantite * i.prixUnitaire), 0).toFixed(2);
+});
+const totalTTC = computed(() => {
+   return (totalHT.value * (1 + form.value.tva/100)).toFixed(2);
 });
 
 onMounted(async () => {
-  const storedUser = localStorage.getItem('user');
-  if (storedUser) {
-    user.value = JSON.parse(storedUser);
-    await fetchDemandes();
-    await fetchTemplates();
-  }
+   await fetchDocs();
+   await fetchClients();
 });
 
-const fetchTemplates = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    const res = await axios.get('http://localhost:5000/api/templateDocuments', {
+const fetchDocs = async () => {
+   const token = localStorage.getItem('token');
+   const res = await axios.get('http://localhost:5000/api/documentCommerciaux', {
       headers: { Authorization: `Bearer ${token}` }
-    });
-    templates.value = res.data.filter(t => t.actif);
-    if (templates.value.length > 0) {
-      approvalForm.value.templateId = templates.value[0]._id;
-    }
-  } catch (err) {
-    console.error(err);
-  }
+   });
+   documents.value = res.data;
 };
 
-const openApprovalModal = (doc) => {
-  currentDoc.value = doc;
-  approvalForm.value.montantTTC = doc.montantTTC;
-  calcHT(); // Auto fill HT based on default 20% TVA
-  showApprovalModal.value = true;
-};
-
-const calcTTC = () => {
-  approvalForm.value.montantTTC = (approvalForm.value.montantHT * (1 + approvalForm.value.tva / 100)).toFixed(2);
-};
-
-const calcHT = () => {
-  approvalForm.value.montantHT = (approvalForm.value.montantTTC / (1 + approvalForm.value.tva / 100)).toFixed(2);
-};
-
-const confirmApproval = async () => {
-  approving.value = true;
-  try {
-    await updateStatus(currentDoc.value._id, 'APPROUVE', approvalForm.value);
-    showApprovalModal.value = false;
-  } finally {
-    approving.value = false;
-  }
-};
-
-const markAsPaid = async (id) => {
-  if (confirm("Confirmer le paiement de cette facture ?")) {
-    await updateStatus(id, 'APPROUVE', { statutPaiement: 'PAYE', datePaiement: new Date() });
-  }
-};
-
-const fetchDemandes = async () => {
-  loading.value = true;
-  try {
-    const token = localStorage.getItem('token');
-    // Fetch documents where agentId matches
-    const currentAgentId = user.value.id || user.value._id;
-    const res = await axios.get(`http://localhost:5000/api/documentCommerciaux?agent=${currentAgentId}`, {
+const fetchClients = async () => {
+   const token = localStorage.getItem('token');
+   const res = await axios.get('http://localhost:5000/api/users?role=client', {
       headers: { Authorization: `Bearer ${token}` }
-    });
-    console.log("Fetched docs for agent:", res.data);
-    docs.value = res.data;
-  } catch (err) {
-    console.error("Fetch demandes error", err);
-  } finally {
-    loading.value = false;
-  }
+   });
+   clients.value = res.data;
 };
 
-const filteredDocs = computed(() => {
-  if (activeTab.value === 'pending') {
-    return docs.value.filter(d => d.statut === 'EN_ATTENTE');
-  } else {
-    return docs.value.filter(d => d.statut !== 'EN_ATTENTE');
-  }
-});
-
-const updateStatus = async (id, status, extraData = {}) => {
-  try {
-    const token = localStorage.getItem('token');
-    await axios.put(`http://localhost:5000/api/documentCommerciaux/${id}`, { 
-      statut: status,
-      ...extraData
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    await fetchDemandes();
-  } catch (err) {
-    console.error("Update status error", err);
-    alert("Erreur lors de la mise à jour");
-  }
+const openCreateModal = () => {
+   form.value = {
+     clientId: '', 
+     typeDocument: 'FACTURE',
+     tva: 19,
+     items: [{ reference: '', description: '', quantite: 1, prixUnitaire: 0 }]
+   };
+   showModal.value = true;
 };
 
-const formatDate = (date) => {
-  return new Date(date).toLocaleDateString('fr-FR', {
-    day: 'numeric', month: 'short', year: 'numeric'
-  });
+const addItem = () => form.value.items.push({ description: '', quantite: 1, prixUnitaire: 0 });
+const removeItem = (i) => form.value.items.splice(i, 1);
+
+const createDocument = async () => {
+   if (!form.value.clientId) return alert('Sélectionnez un client');
+   loading.value = true;
+   try {
+      const token = localStorage.getItem('token');
+      await axios.post('http://localhost:5000/api/documentCommerciaux', form.value, {
+         headers: { Authorization: `Bearer ${token}` }
+      });
+      showModal.value = false;
+      await fetchDocs();
+   } catch (e) {
+      console.error(e);
+      alert('Erreur: ' + (e.response?.data?.message || e.message));
+   } finally {
+      loading.value = false;
+   }
 };
+
+const deleteDoc = async (id) => {
+   if(confirm('Supprimer ?')) {
+       await axios.delete(`http://localhost:5000/api/documentCommerciaux/${id}`);
+       await fetchDocs();
+   }
+}
 </script>
 
 <style scoped>
-.header-split { margin-bottom: 30px; }
-.tabs { display: flex; gap: 10px; padding: 5px; width: fit-content; margin-bottom: 25px; }
-.tab-btn { background: transparent; border: none; color: var(--text-muted); padding: 8px 16px; border-radius: 4px; cursor: pointer; }
-.tab-btn.active { background: rgba(0,0,0,0.1); color: var(--text-main); }
+.demandes-page { padding: 20px; color: white; }
+.header-action { display: flex; justify-content: space-between; margin-bottom: 30px; }
 
-.docs-list { display: flex; flex-direction: column; gap: 15px; }
-.doc-item { display: flex; align-items: center; padding: 20px; gap: 20px; }
+.documents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
 
-.doc-type-icon { font-size: 24px; background: rgba(255,255,255,0.05); width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 12px; }
-
-.doc-info { flex: 1; }
-.doc-main { display: flex; align-items: center; gap: 15px; margin-bottom: 5px; }
-.doc-main h4 { margin: 0; font-size: 16px; }
-.doc-date { font-size: 12px; color: var(--text-muted); }
-
-.doc-details { display: flex; align-items: center; gap: 20px; margin-bottom: 10px; }
-.amount { font-weight: 700; color: var(--secondary); font-size: 18px; }
-.client-name { font-size: 13px; color: var(--text-muted); }
-
-.comment { font-size: 12px; font-style: italic; color: var(--text-muted); background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 4px; margin: 0; }
-
-.doc-actions { display: flex; gap: 10px; }
-
-.status-pill { padding: 4px 12px; border-radius: 20px; font-size: 11px; text-transform: uppercase; font-weight: 700; }
-.status-pill.approuve { background: rgba(0, 230, 118, 0.1); color: #00e676; }
-.status-pill.refuse { background: rgba(255, 76, 76, 0.1); color: #ff4c4c; }
-
-.pack-tag {
-  margin-left: 10px;
-  vertical-align: middle;
+.doc-card { 
+    padding: 24px; 
+    border-radius: 16px; 
+    background: rgba(255, 255, 255, 0.1); 
+    border: 1px solid rgba(255, 255, 255, 0.2); 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    display: flex; 
+    flex-direction: column; 
+    gap: 15px; 
+    transition: transform 0.2s, background 0.2s;
 }
+.doc-card:hover { transform: translateY(-2px); background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.3); }
+.doc-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.doc-ref { font-weight: 700; color: #ccc; font-size: 12px; }
+.badg.FACTURE { color: #4cd137; }
+.badg.DEVIS { color: #fbc531; }
 
-.ref-badge {
-  background: rgba(255,255,255,0.1);
-  color: var(--secondary);
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  margin-right: 8px;
-  border: 1px solid rgba(108, 93, 211, 0.3);
-}
+.amount { font-size: 20px; font-weight: 700; color: white; }
+.doc-actions { margin-top: auto; display: flex; justify-content: space-between; align-items: center; }
 
-.payment-pill {
-  display: block;
-  margin-top: 5px;
-  padding: 2px 10px;
-  border-radius: 4px;
-  font-size: 10px;
-  text-transform: uppercase;
-  font-weight: 800;
-  text-align: center;
-}
-.payment-pill.paye { background: rgba(0, 230, 118, 0.2); color: #00e676; }
-.payment-pill.non_paye { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
-.payment-pill.en_attente { background: rgba(3, 169, 244, 0.2); color: #03a9f4; }
+.modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); display:flex; justify-content: center; align-items:center; z-index:999; }
+.modal-content { width: 600px; max-width: 90%; max-height: 90vh; overflow-y: auto; padding: 30px; border-radius: 16px; background: #1e1e1e; color: white; border: 1px solid #333; }
 
-.empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
-.loading { text-align: center; padding: 20px; color: var(--secondary); }
+.glass-input { width: 100%; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 8px; margin-top: 5px; outline: none; }
+.glass-input option { background: #333; color: white; }
+.form-group { margin-bottom: 15px; }
+
+.item-row { display: flex; gap: 10px; margin-bottom: 10px; }
+.small { width: 80px; } .tiny { width: 60px; } .wide { flex: 1; }
+
+.totals-section { text-align: right; margin-top: 20px; padding-top: 20px; border-top: 1px solid #333; }
+.total-big { font-size: 24px; font-weight: 700; color: #4cd137; }
+
+.btn { padding: 10px 20px; border-radius: 8px; cursor: pointer; border: none; font-weight: 600; display:flex; align-items:center; gap:8px; }
+.btn-primary { background: #3c40c6; color: white; }
+.btn-success { background: #4cd137; color: black; }
+.btn-secondary { background: #576574; color: white; }
+.btn-icon { background: rgba(255,255,255,0.1); padding: 8px; border-radius: 6px; color: white; text-decoration: none; display: inline-flex; gap: 5px; cursor: pointer; border: none;}
+.btn-icon:hover { background: white; color: black; }
+.damage { color: #e84118; margin-left: 5px; }
 </style>

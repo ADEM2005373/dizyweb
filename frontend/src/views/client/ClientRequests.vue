@@ -32,6 +32,19 @@
           </div>
         </div>
 
+
+
+        <div class="form-row">
+          <div class="form-group half">
+             <label>Votre RIB (pour la facture)</label>
+             <input v-model="form.rib" class="glass-input" placeholder="XXXXXXXXXXXXXXXXXXXX" minlength="20" maxlength="24">
+          </div>
+          <div class="form-group half">
+             <label>Matricule Fiscale (Optionnel)</label>
+             <input v-model="form.matriculeFiscale" class="glass-input" placeholder="MF...">
+          </div>
+        </div>
+
         <div class="form-group">
           <label>Commentaire / Détails</label>
           <textarea v-model="form.commentaire" class="glass-input" rows="3" placeholder="Description de votre besoin..."></textarea>
@@ -104,7 +117,9 @@ const availablePacks = ref([]);
 const form = ref({
   typeDocument: 'FACTURE',
   serviceId: '',
-  commentaire: ''
+  commentaire: '',
+  rib: '',
+  matriculeFiscale: ''
 });
 
 onMounted(async () => {
@@ -162,13 +177,15 @@ const submitRequest = async () => {
     await axios.post('http://localhost:5000/api/documentCommerciaux', {
       clientId: userId,
       agentId: agentId,
-      serviceId: form.value.serviceId,
-      montantTTC: selectedPack.prix,
-      montantHT: selectedPack.prixHT,
       tva: selectedPack.tva,
       typeDocument: form.value.typeDocument,
-      commentaire: form.value.commentaire,
-      statut: 'EN_ATTENTE'
+      // statuts defaulted in backend
+      items: [{
+        reference: 'SERVICE',
+        description: selectedPack.titre + (form.value.commentaire ? ` (${form.value.commentaire})` : ''),
+        quantite: 1,
+        prixUnitaire: Number(selectedPack.prixHT) || Number(selectedPack.prix / (1 + (selectedPack.tva || 19)/100)) || 0
+      }]
     }, {
       headers: { Authorization: `Bearer ${token}` }
     });

@@ -1,125 +1,277 @@
+const fs = require('fs');
+const path = require('path');
 const html_to_pdf = require('html-pdf-node');
 const handlebars = require('handlebars');
-const path = require('path');
-const fs = require('fs');
-const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 
 /**
- * Generate a PDF from a template and data
- * @param {Object} template - The template object from DB
- * @param {Object} data - The data to inject into the template
- * @param {String} outputPath - Local path where to save the PDF
+ * Generate PDF using HTML Layout matching the 'Livrable' example
  */
-exports.generatePDF = async (template, data, outputPath) => {
+exports.generatePDF = async (documentData, outputPath) => {
     try {
-        // Ensure directory exists
+        // 1. Prepare Data
+        const data = {
+            ...documentData,
+            isFacture: documentData.typeDocument === 'FACTURE',
+            dateFormatted: new Date(documentData.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+            totalTVA: (documentData.montantHT * (documentData.tva / 100)).toFixed(2),
+            items: documentData.items.map(item => ({
+                ...item,
+                prixUnitaire: Number(item.prixUnitaire) || 0,
+                totalLine: ((item.quantite || 0) * (Number(item.prixUnitaire) || 0)).toFixed(3)
+            }))
+        };
+
+        // 2. Load Logo (Try-Catch safe)
+        let logoBase64 = '';
+        try {
+            const logoPath = path.join(__dirname, '../../frontend/src/assets/logo.jpg');
+            if (fs.existsSync(logoPath)) {
+                const bitmap = fs.readFileSync(logoPath);
+                logoBase64 = 'data:image/jpeg;base64,' + bitmap.toString('base64');
+            }
+        } catch (e) {
+            console.warn("Logo load error", e);
+        }
+
+        // 3. Define HTML Template
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+                
+                body {
+                    font-family: 'Roboto', sans-serif;
+                    font-size: 12px;
+                    color: #000;
+                    margin: 0;
+                    padding: 40px;
+                    line-height: 1.4;
+                    position: relative;
+                }
+
+                /* LOGO & BRANDING */
+                .header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
+                
+                .agent-info h1 { font-size: 24px; font-weight: 700; margin: 0 0 10px 0; }
+                .agent-info p { margin: 2px 0; font-size: 12px; }
+
+                .brand-section { text-align: right; }
+                .logo-img { height: 70px; margin-bottom: 10px; }
+                .doc-meta { margin-top: 15px; text-align: right; }
+                .doc-meta .row { margin-bottom: 5px; }
+                .doc-meta .label { font-weight: 700; margin-right: 15px; }
+
+                /* CLIENT / AGENT COLUMNS */
+                .address-section { display: flex; justify-content: space-between; margin-bottom: 40px; gap: 40px; }
+                .col { flex: 1; }
+                
+                .section-title { 
+                    border-bottom: 2px solid #000; 
+                    font-weight: 700; 
+                    text-transform: uppercase; 
+                    margin-bottom: 10px; 
+                    padding-bottom: 5px;
+                    font-size: 11px;
+                }
+
+                .info-block { background: #f9f9f9; padding: 10px; min-height: 120px; }
+                
+                .info-line { margin-bottom: 5px; }
+                .info-label { font-weight: 700; }
+                .client-name { font-weight: 700; margin-bottom: 5px; font-size: 13px; }
+
+                /* VERTICAL TEXT ON LEFT */
+                .vertical-bar {
+                    position: absolute;
+                    left: 20px;
+                    bottom: 150px;
+                    transform: rotate(-90deg);
+                    transform-origin: 0 0;
+                    font-size: 16px;
+                    font-weight: 400;
+                    letter-spacing: 2px;
+                    white-space: nowrap;
+                    color: #000;
+                }
+                .vertical-bar strong { font-weight: 700; }
+
+                /* TABLE */
+                table { width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 2px solid #000; }
+                th { background: #e0e0e0; padding: 8px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #000; }
+                td { padding: 8px; border-bottom: 1px solid #ccc; font-size: 11px; }
+                
+                .text-right { text-align: right; }
+                .text-center { text-align: center; }
+
+                /* FOOTER / TOTALS */
+                .footer-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; }
+                
+                .legal-text { font-style: italic; font-size: 11px; max-width: 50%; }
+                .legal-text strong { font-weight: 700; }
+                
+                .totals-table { width: 250px; border: 2px solid #000; margin-left: auto; }
+                .totals-row { display: flex; justify-content: space-between; padding: 5px 10px; border-bottom: 1px solid #000; }
+                .totals-row:last-child { border-bottom: none; font-weight: 700; font-size: 14px; background: #e0e0e0; }
+                .totals-row .val { font-weight: 700; }
+
+                /* STAMP */
+                .stamp-container { 
+                    position: absolute; 
+                    bottom: 40px; 
+                    left: 45%; 
+                    transform: translateX(-50%) rotate(-5deg);
+                    border: 3px solid #555;
+                    border-radius: 10px;
+                    padding: 10px 20px;
+                    text-align: center;
+                    color: #555;
+                    font-weight: 700;
+                    font-family: 'Courier New', Courier, monospace;
+                    opacity: 0.8;
+                }
+                .stamp-title { font-size: 10px; text-transform: uppercase; margin-bottom: 5px; }
+
+            </style>
+        </head>
+        <body>
+
+            <!-- VERTICAL SIDE BAR -->
+            <div class="vertical-bar">
+                ${data.typeDocument} <strong>N°${data.reference}</strong>
+            </div>
+
+            <!-- HEADER -->
+            <div class="header-row">
+                <div class="agent-info">
+                    <h1>${data.agentId?.prenom} ${data.agentId?.nom}</h1>
+                    <p>MF: 1946210Y</p>
+                    <p>Tel: 96 902 559</p>
+                    <p>4116, Iset Djerba, Midoun</p>
+                </div>
+                <div class="brand-section">
+                    ${logoBase64 ? `<img src="${logoBase64}" class="logo-img" />` : '<h1>DIZY</h1>'}
+                    <div class="doc-meta">
+                        <div class="row"><span class="label">Numéro</span> ${data.reference}</div>
+                        <div class="row"><span class="label">Date</span> ${data.dateFormatted}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADDRESS BLOCKS -->
+            <div class="address-section">
+                <div class="col">
+                    <div class="section-title">DE</div>
+                    <div class="info-block">
+                        <div class="client-name">${data.agentId?.prenom} ${data.agentId?.nom}</div>
+                        <div class="info-line"><span class="info-label">Relevé d'identité bancaire (RIB):</span></div>
+                        <div class="info-line">01014055113031239493</div>
+                        <div class="info-line"><span class="info-label">Matricule Fiscal:</span></div>
+                        <div class="info-line">1946210Y</div>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <div class="section-title">À</div>
+                    <div class="info-block">
+                        <div class="client-name">${data.clientDetailsSnapshot?.entreprise || (data.clientDetailsSnapshot?.nom + ' ' + data.clientDetailsSnapshot?.prenom)}</div>
+                        
+                        <div class="info-line">${data.clientDetailsSnapshot?.email || ''}</div>
+                        
+                        <div class="info-line"><span class="info-label">RIB:</span></div>
+                        <div class="info-line">${data.clientDetailsSnapshot?.rib || 'Non renseigné'}</div>
+                        
+                        <div class="info-line"><span class="info-label">Matricule Fiscal:</span></div>
+                        <div class="info-line">${data.clientDetailsSnapshot?.matricule || 'Non renseigné'}</div>
+                        
+                        <div class="info-line"><span class="info-label">Adresse:</span></div>
+                        <div class="info-line">${data.clientDetailsSnapshot?.adresse || ''}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABLE -->
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 15%">RÉFÉRENCE</th>
+                        <th>DESCRIPTION</th>
+                        <th class="text-right" style="width: 10%">QUANTITÉ</th>
+                        <th class="text-right" style="width: 15%">MONTANT</th>
+                        <th class="text-right" style="width: 10%">TAXES</th>
+                        <th class="text-right" style="width: 15%">TOTAL HT</th>
+                        <th class="text-right" style="width: 15%">TOTAL TTC</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.items.map(item => `
+                    <tr>
+                        <td>${item.reference || 'REF'}</td>
+                        <td>${item.description}</td>
+                        <td class="text-right">${item.quantite}</td>
+                        <td class="text-right">${Number(item.prixUnitaire).toFixed(3)}</td>
+                        <td class="text-right">${data.tva}%</td>
+                        <td class="text-right">${item.totalLine}</td>
+                        <td class="text-right">${(Number(item.totalLine) * (1 + data.tva / 100)).toFixed(3)}</td>
+                    </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+
+            <!-- FOOTER SECTION -->
+            <div class="footer-row">
+                <div class="legal-text">
+                    <p>Arrêter La Présente ${data.typeDocument === 'FACTURE' ? 'Facture' : 'Devis'} A La Somme De:</p>
+                    <p><strong>${Number(data.montantTTC).toFixed(3)} Dinars (TND)</strong></p>
+                </div>
+
+                <div class="totals-table">
+                    <div class="totals-row">
+                        <span>SOUS-TOTAL</span>
+                        <span class="val">${Number(data.montantHT).toFixed(3)}DT</span>
+                    </div>
+                    <div class="totals-row">
+                        <span>TAXES</span>
+                        <span class="val">${Number(data.totalTVA).toFixed(3)}DT</span>
+                    </div>
+                    <div class="totals-row">
+                        <span>TOTAL À PAYER</span>
+                        <span class="val">${Number(data.montantTTC).toFixed(3)}DT</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STAMP -->
+            <div class="stamp-container">
+                <div class="stamp-title">YASSINE BEN CHEIKH</div>
+                4116, ISET DJERBA, MIDOUN<br>
+                96 902 559 - MF: 1946210/Y<br>
+                RIB: 01014055113031239493
+            </div>
+
+        </body>
+        </html>
+        `;
+
+        // 4. Generate PDF
+        const options = {
+            format: 'A4',
+            margin: { top: '0px', bottom: '0px', left: '0px', right: '0px' }, // Managed by body padding
+            printBackground: true
+        };
+        const file = { content: html };
+        const pdfBuffer = await html_to_pdf.generatePdf(file, options);
+
+        // 5. Save to Disk
         const dir = path.dirname(outputPath);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-        if (template.typeTemplate === 'PDF' && template.pdfTemplatePath) {
-            return await this.generateFromPDFTemplate(template, data, outputPath);
-        } else {
-            return await this.generateFromHTMLTemplate(template, data, outputPath);
-        }
-    } catch (error) {
-        console.error("PDF Generation Error:", error);
-        throw error;
+        fs.writeFileSync(outputPath, pdfBuffer);
+        return true;
+
+    } catch (e) {
+        console.error("PDF Generation failed:", e);
+        throw e;
     }
-};
-
-exports.generateFromHTMLTemplate = async (template, data, outputPath) => {
-    const combinedHTML = `
-        <html>
-            <head>
-                <style>${template.styleCSS || ''}</style>
-            </head>
-            <body>
-                ${template.contenueHTML}
-            </body>
-        </html>
-    `;
-    const compiledTemplate = handlebars.compile(combinedHTML);
-    const finalHTML = compiledTemplate(data);
-
-    let options = {
-        format: 'A4',
-        margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
-    };
-    let file = { content: finalHTML };
-    const pdfBuffer = await html_to_pdf.generatePdf(file, options);
-    fs.writeFileSync(outputPath, pdfBuffer);
-    return true;
-};
-
-exports.generateFromPDFTemplate = async (template, data, outputPath) => {
-    // Determine path: support both relative to project root and relative to current file if needed
-    // The controller will pass robust paths now
-    const fullTemplatePath = path.isAbsolute(template.pdfTemplatePath)
-        ? template.pdfTemplatePath
-        : path.join(__dirname, '..', template.pdfTemplatePath);
-
-    if (!fs.existsSync(fullTemplatePath)) {
-        console.error("Template not found:", fullTemplatePath);
-        throw new Error("Template PDF file not found at " + fullTemplatePath);
-    }
-
-    const existingPdfBytes = fs.readFileSync(fullTemplatePath);
-    const pdfDoc = await PDFDocument.load(existingPdfBytes);
-    const courierFont = await pdfDoc.embedFont(StandardFonts.CourierBold);
-    const pages = pdfDoc.getPages();
-    const firstPage = pages[0];
-    const { width, height } = firstPage.getSize();
-
-    // Helper for drawing text
-    const drawText = (text, x, y, size = 10, color = rgb(0, 0, 0)) => {
-        try {
-            firstPage.drawText(String(text || ''), { x, y, size, font: courierFont, color });
-        } catch (e) { console.error("Error drawing text:", text, e); }
-    };
-
-    // COORDINATES FOR "FIXED" TEMPLATE (Approximate based on standard layouts)
-    // We assume the template provided has the design (Logo, Footer, Boxes).
-    // We just fill in the blanks.
-
-    // Header Info
-    drawText(data.reference, 120, height - 165, 11); // Reference position
-    drawText(data.date, 450, height - 165, 11);      // Date position
-
-    // Client Info (Usually right side or specific box)
-    const clientBlockY = height - 230;
-    const clientBlockX = 40; // Left aligned often, or right. defaulting to left if standard letter.
-    // User said "comme les exemple", typical french layout: client is often right-mid.
-    // Let's assume standard position:
-    // Emetteur (Left), Destinataire (Right)
-    drawText(data.client_entreprise || (data.client_prenom + ' ' + data.client_nom), 350, clientBlockY, 11);
-    drawText(data.client_prenom + ' ' + data.client_nom, 350, clientBlockY - 15, 10);
-    // Address if we had it, skipping for now.
-
-    // Content Table
-    const tableStartsY = height - 350;
-    const colDescX = 50;
-    const colQtyX = 350;
-    const colPriceX = 420;
-    const colTotalX = 500;
-
-    // Line 1
-    drawText(data.commentaire || 'Service', colDescX, tableStartsY, 10);
-    drawText('1', colQtyX, tableStartsY, 10);
-    drawText(`${data.montant_ht} €`, colPriceX, tableStartsY, 10);
-    drawText(`${data.montant_ht} €`, colTotalX, tableStartsY, 10);
-
-    // Totals Block (Usually bottom right)
-    const totalsY = 150; // Just above footer
-    const totalsX = 400;
-    const valX = 500;
-
-    drawText(`${data.montant_ht} €`, valX, totalsY + 30, 10); // Total HT
-    drawText(`${data.tva}%`, valX, totalsY + 15, 10);         // TVA Rate
-    drawText(`${(data.montant_ht * data.tva / 100).toFixed(2)} €`, valX, totalsY, 10); // TVA Amount
-
-    // TOTAL TTC (Bold/Large)
-    drawText(`${data.montant_ttc} €`, valX, totalsY - 20, 12, rgb(0, 0, 0));
-
-    const pdfBytes = await pdfDoc.save();
-    return pdfBytes;
 };

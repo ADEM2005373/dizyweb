@@ -19,9 +19,7 @@
         <router-link to="/client/portfolio" class="nav-item">
           <FolderIcon class="h-5 w-5" /> Portfolio
         </router-link>
-        <router-link to="/client/documents" class="nav-item">
-          <DocumentDuplicateIcon class="h-5 w-5" /> Documents
-        </router-link>
+
         <router-link to="/client/profile" class="nav-item">
           <Cog6ToothIcon class="h-5 w-5" /> Mon Profil
         </router-link>
@@ -99,29 +97,7 @@
             </div>
           </div>
 
-          <!-- RECENT DOCUMENTS -->
-          <div class="card glass section-card">
-            <div class="card-header">
-              <h3>Derniers Documents</h3>
-              <button class="btn-text" @click="$router.push('/client/documents')">Tout voir</button>
-            </div>
-            <div v-if="latestDocs.length === 0" class="empty-msg">Aucun document pour le moment.</div>
-            <div class="recent-docs-list-mini">
-               <div v-for="doc in latestDocs" :key="doc._id" class="doc-mini-item">
-                  <div class="doc-icon-small">
-                    <DocumentTextIcon v-if="doc.typeDocument === 'FACTURE'" class="h-5 w-5" />
-                    <DocumentIcon v-else class="h-5 w-5" />
-                  </div>
-                  <div class="doc-mini-info">
-                    <div class="doc-mini-title">{{ doc.reference || doc.typeDocument }}</div>
-                    <div class="doc-mini-meta">{{ formatDate(doc.createdAt) }} • {{ doc.montantTTC }} €</div>
-                  </div>
-                  <div class="doc-mini-actions">
-                     <a :href="'http://localhost:5000' + doc.pdfPath" target="_blank" class="btn-icon-mini" title="Télécharger"><ArrowDownTrayIcon class="h-4 w-4" /></a>
-                  </div>
-               </div>
-            </div>
-          </div>
+
         </div>
 
       </div>

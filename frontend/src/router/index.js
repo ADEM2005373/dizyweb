@@ -105,11 +105,13 @@ const routes = [
         component: () => import('../views/client/ClientPortfolio.vue'),
         name: 'ClientPortfolio'
       },
+      /*
       {
         path: 'documents',
         component: () => import('../views/client/ClientDocuments.vue'),
         name: 'ClientDocuments'
       },
+      */
       {
         path: 'reseaux-sociaux',
         component: () => import('../views/client/ClientSocials.vue'),

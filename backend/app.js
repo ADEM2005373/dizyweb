@@ -75,10 +75,12 @@ const portfolioRoutes = require("./routes/portfolio.routes");
 app.use("/api/portfolios", portfolioRoutes); // Pluralized
 
 const documentCommerciauxRoutes = require("./routes/documentCommerciaux.routes");
-app.use("/api/documentCommerciaux", documentCommerciauxRoutes); // Already mostly correct, leaving as is
+app.use("/api/documentCommerciaux", documentCommerciauxRoutes);
 
+/*
 const templateRoutes = require("./routes/templateDocument.routes");
 app.use("/api/templateDocuments", templateRoutes);
+*/
 
 
 module.exports = app;

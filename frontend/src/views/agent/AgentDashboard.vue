@@ -14,8 +14,8 @@
         <router-link to="/agent/calendar" class="nav-item">
           <CalendarIcon class="h-5 w-5" /> Mon Agenda
         </router-link>
-        <router-link to="/agent/requests" class="nav-item">
-          <EnvelopeOpenIcon class="h-5 w-5" /> Demandes
+        <router-link to="/agent/demandes" class="nav-item">
+          <DocumentTextIcon class="h-5 w-5" /> Facturation
         </router-link>
         <router-link to="/agent/clients" class="nav-item">
           <UsersIcon class="h-5 w-5" /> Mes Clients
@@ -109,27 +109,7 @@
             </div>
           </div>
 
-          <!-- PENDING DOCUMENTS -->
-          <div class="card glass section-card mt-20">
-            <div class="card-header">
-              <h3>Documents à Valider</h3>
-              <router-link to="/agent/requests" class="btn-text">Gérer tout</router-link>
-            </div>
-            <div class="pending-docs-list">
-               <div v-if="pendingDocs.length === 0" class="empty-state">Aucun document en attente.</div>
-               <div v-for="doc in pendingDocs" :key="doc._id" class="doc-mini-item">
-                  <div class="doc-icon-small">
-                    <DocumentTextIcon v-if="doc.typeDocument === 'FACTURE'" class="h-5 w-5" />
-                    <DocumentIcon v-else class="h-5 w-5" />
-                  </div>
-                  <div class="doc-mini-info">
-                    <div class="doc-mini-title">{{ doc.clientId?.entreprise }}</div>
-                    <div class="doc-mini-meta">{{ doc.typeDocument }} • {{ doc.montantTTC }} €</div>
-                  </div>
-                  <router-link to="/agent/requests" class="doc-btn-view"><Cog6ToothIcon class="h-4 w-4" /></router-link>
-               </div>
-            </div>
-          </div>
+
 
         </div>
 
