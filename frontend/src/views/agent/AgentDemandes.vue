@@ -294,56 +294,104 @@ const validateStandard = async (id) => {
 </script>
 
 <style scoped>
-.demandes-page { padding: 20px; color: white; }
+.demandes-page { padding: 20px; }
 .header-action { display: flex; justify-content: space-between; margin-bottom: 30px; }
 
-.documents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.documents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
 
 .doc-card { 
-    padding: 24px; 
-    border-radius: 16px; 
-    background: rgba(255, 255, 255, 0.1); 
-    border: 1px solid rgba(255, 255, 255, 0.2); 
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    display: flex; 
-    flex-direction: column; 
-    gap: 15px; 
-    transition: transform 0.2s, background 0.2s;
+    padding: 0;
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.2s ease-in-out;
 }
-.doc-card:hover { transform: translateY(-2px); background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.3); }
-.doc-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
-.doc-ref { font-weight: 700; color: #ccc; font-size: 12px; }
-.badg.FACTURE { color: #4cd137; }
-.badg.DEVIS { color: #fbc531; }
+.doc-card:hover { 
+    transform: translateY(-4px); 
+    box-shadow: var(--shadow-md); 
+    border-color: var(--primary); 
+}
 
-.amount { font-size: 20px; font-weight: 700; color: white; }
-.doc-actions { margin-top: auto; display: flex; justify-content: space-between; align-items: center; }
+.doc-header { 
+    background: var(--bg-element); 
+    padding: 12px 20px; 
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+}
+.doc-ref { font-weight: 600; font-family: monospace; color: var(--text-muted); font-size: 13px; }
 
-.modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); display:flex; justify-content: center; align-items:center; z-index:999; }
-.modal-content { width: 600px; max-width: 90%; max-height: 90vh; overflow-y: auto; padding: 30px; border-radius: 16px; background: #1e1e1e; color: white; border: 1px solid #333; }
+.doc-body { padding: 20px; flex: 1; }
+.doc-body h4 { margin: 0 0 10px 0; font-size: 18px; color: var(--text-main); }
+.amount { font-size: 24px; font-weight: 800; color: var(--text-main); margin-bottom: 5px; }
+.date { font-size: 13px; color: var(--text-muted); }
 
-.glass-input { width: 100%; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 8px; margin-top: 5px; outline: none; }
-.glass-input option { background: #333; color: white; }
-.form-group { margin-bottom: 15px; }
+.doc-actions { 
+    padding: 15px 20px; 
+    border-top: 1px solid var(--border); 
+    background: var(--bg-body);
+    display: flex; justify-content: space-between; align-items: center; 
+}
 
+.badg { font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.badg.FACTURE { background: rgba(0, 230, 118, 0.1); color: #059669; }
+.badg.DEVIS { background: rgba(251, 197, 49, 0.1); color: #d97706; }
+
+[data-theme="dark"] .badg.FACTURE { color: #34d399; }
+[data-theme="dark"] .badg.DEVIS { color: #fbbf24; }
+
+
+/* Modal Styles */
+.modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display:flex; justify-content: center; align-items:center; z-index:999; }
+.modal-content { 
+    width: 600px; max-width: 90%; max-height: 90vh; overflow-y: auto; 
+    padding: 30px; 
+    border-radius: var(--radius-lg); 
+    background: var(--bg-card); 
+    color: var(--text-main); 
+    border: 1px solid var(--border); 
+    box-shadow: var(--shadow-md);
+}
+
+.form-group { margin-bottom: 20px; }
 .item-row { display: flex; gap: 10px; margin-bottom: 10px; }
-.small { width: 80px; } .tiny { width: 60px; } .wide { flex: 1; }
+.small { width: 90px; } .tiny { width: 70px; } .wide { flex: 1; }
 
-.totals-section { text-align: right; margin-top: 20px; padding-top: 20px; border-top: 1px solid #333; }
-.total-big { font-size: 24px; font-weight: 700; color: #4cd137; }
+.totals-section { text-align: right; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+.total-big { font-size: 28px; font-weight: 800; color: var(--primary); }
 
-.btn { padding: 10px 20px; border-radius: 8px; cursor: pointer; border: none; font-weight: 600; display:flex; align-items:center; gap:8px; }
-.btn-primary { background: #3c40c6; color: white; }
-.btn-success { background: #4cd137; color: black; }
-.btn-secondary { background: #576574; color: white; }
-.btn-icon { background: rgba(255,255,255,0.1); padding: 8px; border-radius: 6px; color: white; text-decoration: none; display: inline-flex; gap: 5px; cursor: pointer; border: none;}
-.btn-icon:hover { background: white; color: black; }
-.damage { color: #e84118; margin-left: 5px; }
-.action { background: #3c40c6; }
-.badge-pending { font-size: 11px; background: orange; color: black; padding: 4px; border-radius: 4px; }
-.badge-done { font-size: 11px; background: #4cd137; color: black; padding: 4px; border-radius: 4px; }
-.btn-icon.success { color: #4cd137; }
-.btn-icon.success:hover { background: #4cd137; color: black; }
+.modal-actions { margin-top: 30px; display: flex; justify-content: flex-end; gap: 15px; }
+
+/* Buttons */
+.btn { padding: 10px 20px; border-radius: 8px; cursor: pointer; border: none; font-weight: 600; display:flex; align-items:center; gap:8px; transition: 0.2s; }
+.btn-primary { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; }
+.btn-secondary { background: var(--bg-element); color: var(--text-main); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--bg-body); }
+
+.btn-icon { 
+    background: white; 
+    padding: 8px 12px; 
+    border-radius: 8px; 
+    color: var(--text-main); 
+    text-decoration: none; 
+    display: inline-flex; gap: 6px; 
+    cursor: pointer; 
+    border: 1px solid var(--border);
+    font-size: 13px; font-weight: 600;
+    align-items: center;
+}
+.btn-icon:hover { border-color: var(--primary); background: var(--bg-element); color: var(--primary); }
+.btn-icon.success:hover { border-color: #059669; color: #059669; }
+.btn-icon.danger:hover { border-color: #ef4444; color: #ef4444; }
+
+.btn-text { background: none; border: none; color: var(--primary); font-weight: 600; cursor: pointer; }
+.damage { color: #ef4444; }
+
+.badge-pending { font-size: 11px; background: rgba(245, 158, 11, 0.1); color: #d97706; padding: 4px 8px; border-radius: 4px; font-weight: 700; }
+.badge-done { font-size: 11px; background: rgba(16, 185, 129, 0.1); color: #059669; padding: 4px 8px; border-radius: 4px; font-weight: 700; }
 .ml-2 { margin-left: 10px; }
 .mb-20 { margin-bottom: 20px; padding: 15px; }
 </style>

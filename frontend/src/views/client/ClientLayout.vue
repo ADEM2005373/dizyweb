@@ -57,6 +57,7 @@
         </div>
         
         <div class="user-actions">
+          <ThemeToggle />
           <div class="action-btn notifications">
             <BellIcon class="h-6 w-6 text-muted" />
             <span class="pulse"></span>
@@ -87,6 +88,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import ThemeToggle from '../../components/ThemeToggle.vue';
 import { 
   ChartBarIcon, 
   RocketLaunchIcon, 

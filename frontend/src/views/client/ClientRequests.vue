@@ -215,52 +215,53 @@ const formatDate = (date) => {
 .form-row { display: flex; gap: 20px; margin-bottom: 20px; }
 .half { flex: 1; }
 .form-group { margin-bottom: 15px; }
-.form-group label { display: block; margin-bottom: 8px; font-size: 13px; color: var(--text-muted); }
-
-.glass-input {
-  width: 100%; padding: 12px; background: rgba(0,0,0,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main);
-}
+.form-group label { display: block; margin-bottom: 8px; font-size: 13px; color: var(--text-muted); font-weight: 600; }
 
 .list-grid { display: flex; flex-direction: column; gap: 15px; }
-.request-item { display: flex; gap: 20px; padding: 20px; align-items: center; }
-.type-icon { font-size: 24px; background: rgba(255,255,255,0.05); width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 12px; }
+.request-item { display: flex; gap: 20px; padding: 20px; align-items: center; background: var(--bg-card); border: 1px solid var(--border); }
+.type-icon { font-size: 24px; background: var(--bg-element); color: var(--text-main); width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 12px; }
 
 .req-info { flex: 1; }
 .main-info { display: flex; align-items: center; gap: 15px; }
-.main-info h4 { margin: 0; font-size: 16px; }
+.main-info h4 { margin: 0; font-size: 16px; color: var(--text-main); }
 .date { font-size: 12px; color: var(--text-muted); }
 .comment { margin: 5px 0 0; font-size: 13px; font-style: italic; color: var(--text-muted); }
 
 .pill { padding: 4px 12px; border-radius: 20px; font-size: 11px; text-transform: uppercase; font-weight: 700; }
-.pill.en_attente { background: rgba(255, 193, 7, 0.1); color: #ffc107; }
-.pill.approuve { background: rgba(0, 230, 118, 0.1); color: #00e676; }
-.pill.refuse { background: rgba(255, 76, 76, 0.1); color: #ff4c4c; }
+.pill.en_attente { background: rgba(255, 193, 7, 0.1); color: #b45309; }
+.pill.approuve { background: rgba(0, 230, 118, 0.1); color: #15803d; }
+.pill.refuse { background: rgba(255, 76, 76, 0.1); color: #ef4444; }
+
+[data-theme="dark"] .pill.en_attente { color: #fcd34d; }
+[data-theme="dark"] .pill.approuve { color: #4ade80; }
+[data-theme="dark"] .pill.refuse { color: #f87171; }
 
 .ref-badge {
-    background: rgba(255,255,255,0.1);
+    background: var(--bg-element);
     color: var(--secondary);
     font-size: 10px;
     padding: 2px 6px;
     border-radius: 4px;
     margin-right: 5px;
     font-family: monospace;
+    border: 1px solid var(--border);
 }
 
 .btn-download {
   display: inline-block;
   margin-top: 5px;
-  padding: 4px 8px;
+  padding: 4px 12px;
   background: var(--primary);
-  color: black;
+  color: white;
   border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
   text-decoration: none;
   transition: 0.3s;
 }
-.btn-download:hover { transform: scale(1.05); }
+.btn-download:hover { background: var(--primary-hover); }
 .mt-5 { margin-top: 5px; }
 
-.empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
-.loading { text-align: center; padding: 20px; }
+.empty-state { text-align: center; padding: 40px; color: var(--text-muted); background: var(--bg-card); border-radius: var(--radius-md); border: 1px dashed var(--border); }
+.loading { text-align: center; padding: 20px; color: var(--text-muted); }
 </style>

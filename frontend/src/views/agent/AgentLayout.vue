@@ -47,6 +47,7 @@
           <p class="subtitle">Gérez vos rendez-vous et vos dossiers clients.</p>
         </div>
         <div class="user-profile">
+          <ThemeToggle />
           <span class="agent-name">{{ user?.prenom }} {{ user?.nom }}</span>
           <div class="avatar agent">{{ user?.prenom?.charAt(0) }}</div>
         </div>
@@ -67,6 +68,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import ThemeToggle from '../../components/ThemeToggle.vue';
 
 const user = ref({});
 const router = useRouter();
