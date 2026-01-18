@@ -62,6 +62,11 @@ const routes = [
         name: 'AgentDemandes'
       },
       {
+        path: 'services',
+        component: () => import('../views/agent/AgentPacks.vue'),
+        name: 'AgentServices'
+      },
+      {
         path: 'portfolio',
         component: () => import('../views/agent/AgentPortfolio.vue'),
         name: 'AgentPortfolio'

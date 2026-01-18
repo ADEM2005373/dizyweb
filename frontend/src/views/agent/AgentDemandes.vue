@@ -20,13 +20,34 @@
              <p class="date">{{ new Date(doc.createdAt).toLocaleDateString() }}</p>
           </div>
           <div class="doc-actions">
-             <a :href="'http://localhost:5000' + doc.pdfPath" target="_blank" class="btn-icon">
-                <ArrowDownTrayIcon class="h-5 w-5" /> Télécharger
-             </a>
-             <button @click="deleteDoc(doc._id)" class="btn-icon danger">
-                <TrashIcon class="h-5 w-5" />
-             </button>
-          </div>
+              <div v-if="doc.isCustomRequest && doc.statut === 'EN_ATTENTE_AGENT'">
+                 <button @click="openProposalModal(doc)" class="btn-icon action">
+                    <PencilSquareIcon class="h-5 w-5" /> Traiter
+                 </button>
+              </div>
+              <div v-else>
+                  <a v-if="doc.pdfPath" :href="'http://localhost:5000' + doc.pdfPath" target="_blank" class="btn-icon">
+                     <ArrowDownTrayIcon class="h-5 w-5" /> Télécharger
+                  </a>
+
+                  <!-- START: Agent Validation for Standard Requests -->
+                  <button v-if="!doc.isCustomRequest && doc.statut === 'EN_ATTENTE'" @click="validateStandard(doc._id)" class="btn-icon success ml-2">
+                     <CheckIcon class="h-5 w-5" /> Valider
+                  </button>
+                  <!-- END: Agent Validation for Standard Requests -->
+                  
+                  <!-- Agent can Complete Approved Docs -->
+                  <button v-if="doc.statut === 'APPROUVE'" @click="markAsCompleted(doc._id)" class="btn-icon success ml-2">
+                     <CheckBadgeIcon class="h-5 w-5" /> Terminer
+                  </button>
+
+                  <span v-else-if="doc.statut === 'EN_ATTENTE_ADMIN'" class="badge-pending">En Attente Admin</span>
+                  <span v-else-if="doc.statut === 'TERMINE'" class="badge-done">Terminé</span>
+              </div>
+              <button @click="deleteDoc(doc._id)" class="btn-icon danger">
+                 <TrashIcon class="h-5 w-5" />
+              </button>
+           </div>
        </div>
     </div>
 
@@ -79,6 +100,40 @@
           </div>
 
        </div>
+
+    </div>
+
+    <!-- PROPOSAL MODAL -->
+    <div v-if="showProposalModal" class="modal-overlay">
+       <div class="modal-content glass">
+          <h3>Traitement Demande Personnalisée</h3>
+          <div class="client-suggestion card glass mb-20">
+             <h4>Besoin du client :</h4>
+             <p>"{{ currentDoc.clientSuggestion }}"</p>
+          </div>
+
+          <div class="form-group">
+             <label>Description du Service (pour le Devis)</label>
+             <input v-model="proposalForm.description" class="glass-input" placeholder="Ex: Développement Module X..." required>
+          </div>
+
+          <div class="form-group">
+             <label>Détails Techniques / Livrables Spéciaux</label>
+             <textarea v-model="proposalForm.details" class="glass-input" rows="3" placeholder="Détails pour l'admin..."></textarea>
+          </div>
+
+          <div class="form-group half">
+             <label>Prix Proposé (HT)</label>
+             <input type="number" v-model.number="proposalForm.prixPropose" class="glass-input" required>
+          </div>
+
+          <div class="modal-actions">
+             <button @click="showProposalModal = false" class="btn btn-secondary">Annuler</button>
+             <button @click="submitProposal" class="btn btn-primary" :disabled="submitting">
+                {{ submitting ? 'Envoi...' : 'Soumettre à l\'Admin' }}
+             </button>
+          </div>
+       </div>
     </div>
 
   </div>
@@ -87,12 +142,21 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
-import { PlusIcon, ArrowDownTrayIcon, TrashIcon } from '@heroicons/vue/24/outline';
+import { PlusIcon, ArrowDownTrayIcon, TrashIcon, PencilSquareIcon, CheckBadgeIcon } from '@heroicons/vue/24/outline';
 
 const documents = ref([]);
 const clients = ref([]);
 const showModal = ref(false);
+const showProposalModal = ref(false);
 const loading = ref(false);
+const submitting = ref(false);
+const currentDoc = ref(null);
+
+const proposalForm = ref({
+  description: '',
+  details: '',
+  prixPropose: 0
+});
 
 const form = ref({
   clientId: '',
@@ -163,10 +227,70 @@ const createDocument = async () => {
 
 const deleteDoc = async (id) => {
    if(confirm('Supprimer ?')) {
-       await axios.delete(`http://localhost:5000/api/documentCommerciaux/${id}`);
+       await axios.delete(`http://localhost:5000/api/documentCommerciaux/${id}`, {
+           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+       });
        await fetchDocs();
    }
 }
+
+const openProposalModal = (doc) => {
+   currentDoc.value = doc;
+   proposalForm.value = {
+      description: doc.clientSuggestion || '',
+      details: '',
+      prixPropose: 0
+   };
+   showProposalModal.value = true;
+};
+
+const submitProposal = async () => {
+   submitting.value = true;
+   try {
+       const token = localStorage.getItem('token');
+       await axios.put(`http://localhost:5000/api/documentCommerciaux/${currentDoc.value._id}/proposal`, proposalForm.value, {
+            headers: { Authorization: `Bearer ${token}` }
+       });
+       showProposalModal.value = false;
+       await fetchDocs();
+       alert("Proposition envoyée à l'administrateur !");
+   } catch(e) {
+       console.error(e);
+       alert("Erreur lors de l'envoi");
+   } finally {
+       submitting.value = false;
+   }
+};
+
+const markAsCompleted = async (id) => {
+    if(!confirm("Marquer ce livrable comme terminé / livré ?")) return;
+    try {
+        const token = localStorage.getItem('token');
+        await axios.put(`http://localhost:5000/api/documentCommerciaux/${id}/complete`, {}, {
+             headers: { Authorization: `Bearer ${token}` }
+        });
+        await fetchDocs();
+        alert("Livrable marqué comme terminé !");
+    } catch(e) {
+        console.error(e);
+        alert("Erreur lors de la validation");
+        alert("Erreur lors de la validation");
+    }
+};
+
+const validateStandard = async (id) => {
+    if(!confirm("Valider cette demande standard et l'envoyer au client ?")) return;
+    try {
+        const token = localStorage.getItem('token');
+        await axios.put(`http://localhost:5000/api/documentCommerciaux/${id}/validate-standard`, {}, {
+             headers: { Authorization: `Bearer ${token}` }
+        });
+        await fetchDocs();
+        alert("Document validé et envoyé !");
+    } catch(e) {
+        alert("Erreur validation");
+    }
+};
 </script>
 
 <style scoped>
@@ -215,4 +339,11 @@ const deleteDoc = async (id) => {
 .btn-icon { background: rgba(255,255,255,0.1); padding: 8px; border-radius: 6px; color: white; text-decoration: none; display: inline-flex; gap: 5px; cursor: pointer; border: none;}
 .btn-icon:hover { background: white; color: black; }
 .damage { color: #e84118; margin-left: 5px; }
+.action { background: #3c40c6; }
+.badge-pending { font-size: 11px; background: orange; color: black; padding: 4px; border-radius: 4px; }
+.badge-done { font-size: 11px; background: #4cd137; color: black; padding: 4px; border-radius: 4px; }
+.btn-icon.success { color: #4cd137; }
+.btn-icon.success:hover { background: #4cd137; color: black; }
+.ml-2 { margin-left: 10px; }
+.mb-20 { margin-bottom: 20px; padding: 15px; }
 </style>

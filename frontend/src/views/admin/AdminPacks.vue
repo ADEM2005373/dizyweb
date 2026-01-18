@@ -2,7 +2,16 @@
   <div class="packs-manager">
     <div class="header-actions">
       <h3>Gestion des Packs et Services</h3>
-      <div class="actions-group">
+      
+      <div class="tabs ml-4">
+         <button :class="['tab-btn', activeTab==='all'?'active':'']" @click="activeTab='all'">Tous</button>
+         <button :class="['tab-btn', activeTab==='validation'?'active':'']" @click="activeTab='validation'">
+            Validations <span v-if="pendingCount > 0" class="badge-count">{{ pendingCount }}</span>
+         </button>
+      </div>
+
+      <div class="actions-group ml-auto">
+          <!-- Validation Modal Trigger is internal, no button needed here -->
           <button v-if="packs.length === 0 && !loading" @click="seedDefaultPacks" class="btn btn-secondary">
             Initialiser Défauts
           </button>
@@ -65,19 +74,70 @@
       </form>
     </div>
 
+    <!-- VALIDATION MODAL -->
+    <div v-if="showValidationModal" class="modal-overlay fade-in">
+       <div class="modal-content glass">
+          <h3>Validation du Service</h3>
+          <p class="mb-4">Veuillez vérifier et ajuster les détails avant validation finale.</p>
+          
+          <form @submit.prevent="confirmApproval">
+             <div class="form-group">
+                <label>Titre / Nom du Service</label>
+                <input v-model="validationForm.titre" class="glass-input" required />
+             </div>
+             
+             <div class="form-group">
+                <label>Description Finale</label>
+                <textarea v-model="validationForm.description" rows="3" class="glass-input" required></textarea>
+             </div>
+
+             <div class="form-row">
+                <div class="form-group half">
+                    <label>Prix HT (DT)</label>
+                    <input type="number" v-model="validationForm.prix" class="glass-input" required />
+                </div>
+                <!-- Add VAT logic if needed, simplify for now -->
+             </div>
+
+             <div class="form-actions mt-4">
+                <button type="button" @click="showValidationModal = false" class="btn btn-secondary">Annuler</button>
+                <button type="submit" class="btn btn-success">Confirmer & Valider</button>
+             </div>
+          </form>
+       </div>
+    </div>
+
     <!-- PACKS LIST -->
     <div class="packs-grid" v-if="!loading">
-      <div v-for="pack in packs" :key="pack._id" class="card glass pack-card">
+      <div v-for="pack in filteredPacks" :key="pack._id" class="card glass pack-card" :class="{ 'pending-card': pack.status === 'PENDING_ADMIN' }">
         <div class="pack-header">
-            <div class="pack-icon">{{ pack.titre.charAt(0) }}</div>
-            <div class="pack-status" :class="{ active: pack.actif }"></div>
+            <div class="pack-icon" v-if="!pack.isCustom">{{ pack.titre.charAt(0) }}</div>
+            <div class="pack-icon custom-icon" v-else>✨</div>
+            
+            <div class="pack-status" :class="{ active: pack.actif }" v-if="!pack.isCustom"></div>
+            <div class="status-badge" v-else :class="pack.status.toLowerCase()">{{ pack.status }}</div>
         </div>
         <h4>{{ pack.titre }}</h4>
-        <p class="pack-price">{{ pack.prix }} DT TTC</p>
-        <p class="pack-price-small">{{ pack.prixHT }} DT HT ({{ pack.tva }}%)</p>
-        <p class="pack-desc">{{ truncate(pack.description, 60) }}</p>
         
-        <div class="pack-actions">
+        <!-- Display Proposal if Pending -->
+        <div v-if="pack.status === 'PENDING_ADMIN' && pack.agentProposal">
+           <p class="pack-price">{{ pack.agentProposal.prixPropose }} DT TTC <span class="text-xs text-muted">(Prop)</span></p>
+           <p class="pack-desc">{{ truncate(pack.agentProposal.description, 60) }}</p>
+           <p class="text-xs text-muted">Client: {{ pack.clientRequest }}</p>
+        </div>
+
+        <!-- Display Actual if Active -->
+        <div v-else>
+           <p class="pack-price">{{ pack.prix }} DT TTC</p>
+           <p class="pack-price-small">{{ pack.prixHT }} DT HT ({{ pack.tva }}%)</p>
+           <p class="pack-desc">{{ truncate(pack.description, 60) }}</p>
+        </div>
+        
+        <div class="pack-actions" v-if="pack.status === 'PENDING_ADMIN'">
+           <button @click="openValidationModal(pack)" class="btn-xs btn-success">Valider</button>
+           <button @click="approvePack(pack, false)" class="btn-xs btn-danger">Refuser</button>
+        </div>
+        <div class="pack-actions" v-else>
            <button @click="editPack(pack)" class="btn-xs btn-primary">Editer</button>
            <button @click="deletePack(pack._id)" class="btn-xs btn-danger">Supprimer</button>
         </div>
@@ -95,9 +155,18 @@ export default {
   name: 'AdminPacks',
   data() {
     return {
+
       packs: [],
+      activeTab: 'all',
       loading: false,
       showForm: false,
+      showValidationModal: false,
+      validationForm: {
+          id: null,
+          titre: '',
+          description: '',
+          prix: 0
+      },
       isEdit: false,
       editId: null,
       form: {
@@ -113,6 +182,15 @@ export default {
   mounted() {
     this.fetchPacks();
     // Auto-refresh every 5s to sync with changes if needed, or just once is fine.
+  },
+  computed: {
+    pendingCount() {
+        return this.packs.filter(p => p.status === 'PENDING_ADMIN').length;
+    },
+    filteredPacks() {
+        if(this.activeTab === 'validation') return this.packs.filter(p => p.status === 'PENDING_ADMIN');
+        return this.packs;
+    }
   },
   methods: {
     async fetchPacks() {
@@ -174,6 +252,51 @@ export default {
         } catch (err) {
             alert('Erreur lors de la sauvegarde');
             console.error(err);
+        }
+    },
+    openValidationModal(pack) {
+        this.validationForm = {
+            id: pack._id,
+            titre: pack.agentProposal?.description || 'Service Sur Mesure',
+            description: pack.agentProposal?.details || '',
+            prix: pack.agentProposal?.prixPropose || 0
+        };
+        this.showValidationModal = true;
+    },
+    async confirmApproval() {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(`http://localhost:5000/api/packs/${this.validationForm.id}/approve`, { 
+                approved: true,
+                titre: this.validationForm.titre,
+                description: this.validationForm.description,
+                prix: this.validationForm.prix
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            this.showValidationModal = false;
+            this.fetchPacks();
+        } catch(e) {
+            console.error(e);
+            alert("Erreur validation");
+        }
+    },
+    async approvePack(pack, approved) {
+        if(approved) {
+            // Should go through modal loop, but keep as fallback if called directly
+            this.openValidationModal(pack);
+            return;
+        }
+        if(!confirm("Refuser ce service ?")) return;
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(`http://localhost:5000/api/packs/${pack._id}/approve`, { approved }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            this.fetchPacks();
+        } catch(e) {
+            console.error(e);
+            alert("Erreur lors du refus");
         }
     },
     async deletePack(id) {
@@ -355,4 +478,17 @@ export default {
   border-radius: 6px;
   color: rgb(14, 14, 14);
 }
+.ml-4 { margin-left: 20px; }
+.ml-auto { margin-left: auto; }
+.tabs { display: flex; gap: 10px; }
+.tab-btn { background: transparent; border: none; color: #888; padding: 5px 15px; cursor: pointer; border-radius: 20px; }
+.tab-btn.active { background: rgba(255,255,255,0.1); color: white; font-weight: bold; }
+.badge-count { background: #e056fd; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; vertical-align: top; }
+
+.custom-icon { background: rgba(224, 86, 253, 0.1); color: #e056fd; border-color: #e056fd; }
+.status-badge { position: absolute; top: 15px; right: 15px; font-size: 9px; padding: 2px 6px; border-radius: 4px; background: #555; text-transform: uppercase; }
+.status-badge.pending_admin { background: #e056fd; }
+
+.btn-success { background: #00e676; color: black; }
+.pending-card { border: 1px dashed #e056fd; }
 </style>

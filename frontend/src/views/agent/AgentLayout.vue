@@ -20,6 +20,9 @@
         <router-link to="/agent/demandes" class="nav-item" active-class="active">
           <span class="icon">📑</span> Mes Demandes
         </router-link>
+        <router-link to="/agent/services" class="nav-item" active-class="active">
+          <span class="icon">✨</span> Services
+        </router-link>
         <router-link to="/agent/portfolio" class="nav-item" active-class="active">
           <span class="icon">💼</span> Portfolio
         </router-link>

@@ -57,7 +57,8 @@
                  <h4>{{ req.client?.entreprise }}</h4>
                  <p>{{ req.type }}</p>
                </div>
-               <router-link to="/agent/requests" class="btn-xs btn-primary">Voir</router-link>
+               <router-link v-if="req.isPack" to="/agent/services" class="btn-xs btn-primary">Traiter</router-link>
+               <router-link v-else to="/agent/requests" class="btn-xs btn-primary">Voir</router-link>
              </div>
           </div>
         </div>
@@ -107,16 +108,29 @@ const fetchDashboardData = async () => {
         (r.agent === currentAgentId)
       );
       
-      const pending = myRDV.filter(r => r.statut === 'en attente');
+      const pendingRDV = myRDV.filter(r => r.statut === 'en attente');
       const confirmed = myRDV.filter(r => r.statut === 'confirmé');
-      
+
+      // 3. Fetch Pending Packs (Custom)
+      const packsRes = await axios.get('http://localhost:5000/api/packs?status=PENDING_AGENT', { headers });
+      const pendingPacks = packsRes.data.filter(p => p.isCustom);
+
       stats.value = {
           clients: myClients.length, 
-          pending: pending.length,
+          pending: pendingRDV.length + pendingPacks.length,
           meetings: confirmed.length
       };
 
-      recentRequests.value = pending.slice(0, 3);
+      // Merge Requests
+      const formattedPacks = pendingPacks.map(p => ({
+          _id: p._id,
+          type: 'Proposition Service',
+          client: p.clientId, // populated
+          isPack: true
+      }));
+
+      // Combine RDV + Packs
+      recentRequests.value = [...pendingRDV, ...formattedPacks].slice(0, 5);
       const today = new Date().toDateString();
       todayAgenda.value = confirmed.filter(r => new Date(r.dateProposee).toDateString() === today)
                                    .sort((a,b) => new Date(a.dateProposee) - new Date(b.dateProposee));

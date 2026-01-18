@@ -34,6 +34,7 @@
 
 
 
+
         <div class="form-row">
           <div class="form-group half">
              <label>Votre RIB (pour la facture)</label>
@@ -119,7 +120,8 @@ const form = ref({
   serviceId: '',
   commentaire: '',
   rib: '',
-  matriculeFiscale: ''
+  matriculeFiscale: '',
+  customSuggestion: ''
 });
 
 onMounted(async () => {
@@ -165,21 +167,19 @@ const submitRequest = async () => {
     const token = localStorage.getItem('token');
     const userId = user.value.id || user.value._id;
     
-    // Find selected pack for amount
+    // Normal Flow
     const selectedPack = availablePacks.value.find(p => p._id === form.value.serviceId);
     if (!selectedPack) throw new Error("Pack non sélectionné");
 
-    let agentId = user.value.agentPrincipal;
-    if (agentId && typeof agentId === 'object') {
-      agentId = agentId._id || agentId.id;
-    }
-
     await axios.post('http://localhost:5000/api/documentCommerciaux', {
       clientId: userId,
-      agentId: agentId,
+      agentId: user.value.agentPrincipal, // Fixed: use user object
       tva: selectedPack.tva,
       typeDocument: form.value.typeDocument,
-      // statuts defaulted in backend
+      // Pass RIB and Matricule to backend to update profile
+      rib: form.value.rib,
+      matriculeFiscale: form.value.matriculeFiscale,
+
       items: [{
         reference: 'SERVICE',
         description: selectedPack.titre + (form.value.commentaire ? ` (${form.value.commentaire})` : ''),
@@ -192,7 +192,7 @@ const submitRequest = async () => {
 
     alert("Demande envoyée !");
     showForm.value = false;
-    form.value = { typeDocument: 'FACTURE', serviceId: '', commentaire: '' };
+    form.value = { typeDocument: 'FACTURE', serviceId: '', commentaire: '', customSuggestion: '' };
     await fetchRequests();
   } catch (err) {
     console.error("Submit error", err);

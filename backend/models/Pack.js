@@ -36,6 +36,25 @@ const packSchema = new mongoose.Schema(
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User"
+        },
+
+        // Custom Pack Fields
+        isCustom: { type: Boolean, default: false },
+        private: { type: Boolean, default: false }, // If true, only visible to clientId
+        clientId: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // The client who requested it (or for whom it is made)
+
+        status: {
+            type: String,
+            enum: ['ACTIVE', 'PENDING_AGENT', 'PENDING_ADMIN', 'APPROVED', 'REJECTED'],
+            default: 'ACTIVE' // Standard packs are ACTIVE by default
+        },
+
+        clientRequest: { type: String }, // Original suggestion text
+
+        agentProposal: {
+            prixPropose: Number,
+            description: String,
+            details: String
         }
 
     },

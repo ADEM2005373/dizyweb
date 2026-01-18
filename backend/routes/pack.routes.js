@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const packController = require("../controllers/pack.controller");
-const { verifyToken, authorizeRoles } = require("../middlewares/auth.middlewares");
+const { verifyToken, authorizeRoles, verifyTokenOptional } = require("../middlewares/auth.middlewares");
 
 // =======================
 // ROUTES PACK
@@ -18,6 +18,7 @@ router.post(
 // Récupérer tous les packs → admin & client
 router.get(
   "/",
+  verifyTokenOptional,
   packController.getAllPacks
 );
 
@@ -44,5 +45,10 @@ router.delete(
   authorizeRoles("admin"),
   packController.deletePack
 );
+
+// Custom Pack Flow
+router.post('/custom', verifyToken, packController.createCustomPack);
+router.put('/:id/proposal', verifyToken, authorizeRoles("agent", "admin"), packController.updatePackProposal);
+router.put('/:id/approve', verifyToken, authorizeRoles("admin"), packController.approvePack);
 
 module.exports = router;

@@ -24,8 +24,22 @@ const DocumentCommerciauxSchema = new mongoose.Schema({
 
     statut: {
         type: String,
-        enum: ['EN_ATTENTE', 'APPROUVE', 'REFUSE', 'PAYE', 'ANNULE'],
+        enum: ['EN_ATTENTE', 'EN_ATTENTE_AGENT', 'EN_ATTENTE_ADMIN', 'APPROUVE', 'REFUSE', 'PAYE', 'ANNULE', 'TERMINE'],
         default: 'EN_ATTENTE'
+    },
+
+    // Custom Request Flow
+    isCustomRequest: { type: Boolean, default: false },
+    clientSuggestion: { type: String }, // What the client asks for
+    agentProposal: {
+        prixPropose: Number,
+        description: String,
+        details: String // Special Livrable details
+    },
+    adminApprovalStatus: {
+        type: String,
+        enum: ['NOT_REQUIRED', 'PENDING', 'APPROVED', 'REJECTED'],
+        default: 'NOT_REQUIRED'
     },
 
     pdfPath: { type: String }, // Path to generated PDF

@@ -8,17 +8,26 @@ const handlebars = require('handlebars');
  */
 exports.generatePDF = async (documentData, outputPath) => {
     try {
+        // Ensure we work with a plain object
+        const sourceData = documentData.toObject ? documentData.toObject() : documentData;
+
+        console.log("PDF GENERATOR INPUT:", JSON.stringify(sourceData, null, 2));
+
         // 1. Prepare Data
         const data = {
-            ...documentData,
-            isFacture: documentData.typeDocument === 'FACTURE',
-            dateFormatted: new Date(documentData.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
-            totalTVA: (documentData.montantHT * (documentData.tva / 100)).toFixed(2),
-            items: documentData.items.map(item => ({
+            ...sourceData,
+            isFacture: sourceData.typeDocument === 'FACTURE',
+            dateFormatted: new Date(sourceData.createdAt || Date.now()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+            totalTVA: (Number(sourceData.montantHT || 0) * (Number(sourceData.tva || 0) / 100)).toFixed(2),
+            items: (sourceData.items || []).map(item => ({
                 ...item,
                 prixUnitaire: Number(item.prixUnitaire) || 0,
-                totalLine: ((item.quantite || 0) * (Number(item.prixUnitaire) || 0)).toFixed(3)
-            }))
+                totalLine: ((Number(item.quantite) || 0) * (Number(item.prixUnitaire) || 0)).toFixed(3)
+            })),
+            // Safety defaults for totals
+            montantHT: Number(sourceData.montantHT || 0),
+            montantTTC: Number(sourceData.montantTTC || 0),
+            tva: Number(sourceData.tva || 0)
         };
 
         // 2. Load Logo (Try-Catch safe)
@@ -139,13 +148,13 @@ exports.generatePDF = async (documentData, outputPath) => {
 
             <!-- VERTICAL SIDE BAR -->
             <div class="vertical-bar">
-                ${data.typeDocument} <strong>N°${data.reference}</strong>
+                ${data.typeDocument || 'DOCUMENT'} <strong>N°${data.reference || 'PROVISOIRE'}</strong>
             </div>
 
             <!-- HEADER -->
             <div class="header-row">
                 <div class="agent-info">
-                    <h1>${data.agentId?.prenom} ${data.agentId?.nom}</h1>
+                    <h1>Yassine Ben Cheikh</h1>
                     <p>MF: 1946210Y</p>
                     <p>Tel: 96 902 559</p>
                     <p>4116, Iset Djerba, Midoun</p>
@@ -164,7 +173,7 @@ exports.generatePDF = async (documentData, outputPath) => {
                 <div class="col">
                     <div class="section-title">DE</div>
                     <div class="info-block">
-                        <div class="client-name">${data.agentId?.prenom} ${data.agentId?.nom}</div>
+                        <div class="client-name">Yassine Ben Cheikh</div>
                         <div class="info-line"><span class="info-label">Relevé d'identité bancaire (RIB):</span></div>
                         <div class="info-line">01014055113031239493</div>
                         <div class="info-line"><span class="info-label">Matricule Fiscal:</span></div>
@@ -175,7 +184,7 @@ exports.generatePDF = async (documentData, outputPath) => {
                 <div class="col">
                     <div class="section-title">À</div>
                     <div class="info-block">
-                        <div class="client-name">${data.clientDetailsSnapshot?.entreprise || (data.clientDetailsSnapshot?.nom + ' ' + data.clientDetailsSnapshot?.prenom)}</div>
+                        <div class="client-name">${(data.clientDetailsSnapshot?.entreprise || (data.clientDetailsSnapshot?.nom ? data.clientDetailsSnapshot.nom + ' ' + (data.clientDetailsSnapshot.prenom || '') : 'Client Inconnu'))}</div>
                         
                         <div class="info-line">${data.clientDetailsSnapshot?.email || ''}</div>
                         
@@ -208,12 +217,12 @@ exports.generatePDF = async (documentData, outputPath) => {
                     ${data.items.map(item => `
                     <tr>
                         <td>${item.reference || 'REF'}</td>
-                        <td>${item.description}</td>
-                        <td class="text-right">${item.quantite}</td>
-                        <td class="text-right">${Number(item.prixUnitaire).toFixed(3)}</td>
-                        <td class="text-right">${data.tva}%</td>
-                        <td class="text-right">${item.totalLine}</td>
-                        <td class="text-right">${(Number(item.totalLine) * (1 + data.tva / 100)).toFixed(3)}</td>
+                        <td>${item.description || 'Service'}</td>
+                        <td class="text-right">${Number(item.quantite) || 1}</td>
+                        <td class="text-right">${(Number(item.prixUnitaire) || 0).toFixed(3)}</td>
+                        <td class="text-right">${data.tva || 0}%</td>
+                        <td class="text-right">${item.totalLine || '0.000'}</td>
+                        <td class="text-right">${(Number(item.totalLine || 0) * (1 + (data.tva || 0) / 100)).toFixed(3)}</td>
                     </tr>
                     `).join('')}
                 </tbody>
@@ -223,21 +232,21 @@ exports.generatePDF = async (documentData, outputPath) => {
             <div class="footer-row">
                 <div class="legal-text">
                     <p>Arrêter La Présente ${data.typeDocument === 'FACTURE' ? 'Facture' : 'Devis'} A La Somme De:</p>
-                    <p><strong>${Number(data.montantTTC).toFixed(3)} Dinars (TND)</strong></p>
+                    <p><strong>${(Number(data.montantTTC) || 0).toFixed(3)} Dinars (TND)</strong></p>
                 </div>
 
                 <div class="totals-table">
                     <div class="totals-row">
                         <span>SOUS-TOTAL</span>
-                        <span class="val">${Number(data.montantHT).toFixed(3)}DT</span>
+                        <span class="val">${Number(data.montantHT).toFixed(3)} DT</span>
                     </div>
                     <div class="totals-row">
-                        <span>TAXES</span>
-                        <span class="val">${Number(data.totalTVA).toFixed(3)}DT</span>
+                        <span>TAXES (${data.tva}%)</span>
+                        <span class="val">${Number(data.totalTVA).toFixed(3)} DT</span>
                     </div>
                     <div class="totals-row">
                         <span>TOTAL À PAYER</span>
-                        <span class="val">${Number(data.montantTTC).toFixed(3)}DT</span>
+                        <span class="val">${Number(data.montantTTC).toFixed(3)} DT</span>
                     </div>
                 </div>
             </div>

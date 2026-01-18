@@ -41,3 +41,22 @@ exports.authorizeRoles = (...roles) => {
     next();
   };
 };
+
+// =======================
+// Vérification Optionnelle (Public + Auth Mix)
+// =======================
+exports.verifyTokenOptional = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    try {
+      const token = authHeader.split(" ")[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded;
+    } catch (error) {
+      console.warn("Optional Token Invalid:", error.message);
+      // Valid token provided but expired/bad -> Treat as Public user (or could return 401 if stricter)
+      // For now, treat as public
+    }
+  }
+  next();
+};

@@ -12,11 +12,14 @@
       <button :class="['tab-btn', activeTab === 'pending' ? 'active' : '']" @click="activeTab = 'pending'">
         En Attente
       </button>
-      <button :class="['tab-btn', activeTab === 'all' ? 'active' : '']" @click="activeTab = 'all'">
-        Historique Complet
+      <button :class="['tab-btn', activeTab === 'livrables' ? 'active' : '']" @click="activeTab = 'livrables'">
+        <FolderIcon class="h-4 w-4 inline mr-1" /> Livrables Validés
       </button>
       <button :class="['tab-btn', activeTab === 'unpaid' ? 'active' : '']" @click="activeTab = 'unpaid'">
         <CurrencyEuroIcon class="h-4 w-4 inline mr-1" /> Impayés
+      </button>
+      <button :class="['tab-btn', activeTab === 'all' ? 'active' : '']" @click="activeTab = 'all'">
+        Historique
       </button>
     </div>
 
@@ -79,6 +82,11 @@
                   <button @click="openApprovalModal(doc)" class="btn-icon check" title="Approuver"><CheckIcon class="h-4 w-4" /></button>
                   <button @click="updateStatus(doc._id, 'REFUSE')" class="btn-icon cross" title="Refuser"><XMarkIcon class="h-4 w-4" /></button>
                 </div>
+                <div class="actions" v-else-if="doc.statut === 'EN_ATTENTE_ADMIN'">
+                   <span class="badge-custom">Proposition Agent</span>
+                   <button @click="openCustomApprovalModal(doc)" class="btn-icon check" title="Valider Proposition"><CheckIcon class="h-4 w-4" /></button>
+                   <button @click="updateStatus(doc._id, 'REFUSE')" class="btn-icon cross" title="Refuser"><XMarkIcon class="h-4 w-4" /></button>
+                </div>
                 <div class="actions" v-else-if="doc.statut === 'APPROUVE'">
                   <a v-if="doc.pdfPath" :href="'http://localhost:5000' + doc.pdfPath" target="_blank" class="btn-icon" title="Voir PDF"><FolderIcon class="h-4 w-4" /></a>
                   <button v-if="doc.typeDocument === 'FACTURE' && doc.statutPaiement === 'NON_PAYE'" 
@@ -133,6 +141,35 @@
         </form>
       </div>
     </div>
+
+
+    <!-- CUSTOM APPROVAL MODAL -->
+    <div v-if="showCustomApproval" class="modal-overlay">
+       <div class="modal-content glass">
+          <h3>Validation Proposition Agent</h3>
+          <div class="proposal-card card glass mb-20">
+             <p><strong>Suggestion Client:</strong> {{ currentDoc.clientSuggestion }}</p>
+             <hr class="op-10 my-10">
+             <p><strong>Proposition Agent:</strong> {{ currentDoc.agentProposal?.description }}</p>
+             <p class="text-xs text-muted">{{ currentDoc.agentProposal?.details }}</p>
+             <p class="amount-lg">{{ currentDoc.agentProposal?.prixPropose }} € HT</p>
+          </div>
+
+          <div class="alert warn mb-20" v-if="!currentDoc.agentProposal">
+             Erreur: Pas de proposition trouvée.
+          </div>
+
+          <form @submit.prevent="confirmCustomApproval">
+             <div class="modal-actions">
+                <button type="button" @click="showCustomApproval = false" class="btn btn-secondary">Annuler</button>
+                <button type="submit" class="btn btn-success" :disabled="approving">
+                   {{ approving ? 'Validation...' : 'Valider & Générer PDF' }}
+                </button>
+             </div>
+          </form>
+       </div>
+    </div>
+
   </div>
 </template>
 
@@ -146,6 +183,7 @@ const activeTab = ref('pending');
 const loading = ref(true);
 const templates = ref([]);
 const showApprovalModal = ref(false);
+const showCustomApproval = ref(false);
 const approving = ref(false);
 const currentDoc = ref(null);
 const approvalForm = ref({
@@ -200,6 +238,30 @@ const confirmApproval = async () => {
   }
 };
 
+const openCustomApprovalModal = (doc) => {
+    currentDoc.value = doc;
+    showCustomApproval.value = true;
+};
+
+const confirmCustomApproval = async () => {
+    approving.value = true;
+    try {
+        const token = localStorage.getItem('token');
+        await axios.put(`http://localhost:5000/api/documentCommerciaux/${currentDoc.value._id}/admin-approve`, {
+            approved: true,
+            templateId: null // or select one
+        }, { headers: { Authorization: `Bearer ${token}` } });
+        
+        showCustomApproval.value = false;
+        await fetchAllDemandes();
+    } catch(e) {
+        console.error(e);
+        alert("Erreur validation");
+    } finally {
+        approving.value = false;
+    }
+};
+
 const markAsPaid = async (id) => {
   if (confirm("Confirmer le règlement de cette facture ?")) {
     await updateStatus(id, 'APPROUVE', { statutPaiement: 'PAYE', datePaiement: new Date() });
@@ -223,7 +285,10 @@ const fetchAllDemandes = async () => {
 
 const filteredDocs = computed(() => {
   if (activeTab.value === 'pending') {
-    return docs.value.filter(d => d.statut === 'EN_ATTENTE');
+    return docs.value.filter(d => ['EN_ATTENTE', 'EN_ATTENTE_ADMIN'].includes(d.statut));
+  }
+  if (activeTab.value === 'livrables') {
+      return docs.value.filter(d => ['APPROUVE', 'TERMINE', 'PAYE'].includes(d.statut));
   }
   if (activeTab.value === 'unpaid') {
       return docs.value.filter(d => d.statutPaiement === 'NON_PAYE');
@@ -265,6 +330,7 @@ const formatDate = (date) => {
 .type-badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
 .type-badge.facture { background: rgba(108, 93, 211, 0.2); color: #6c5dd3; }
 .type-badge.devis { background: rgba(255, 159, 67, 0.2); color: #ff9f43; }
+.status-pill.termine { background: #4cd137; color: black; }
 
 .name-info { display: flex; flex-direction: column; }
 .name-info .main { font-weight: 600; font-size: 14px; }
@@ -287,4 +353,11 @@ const formatDate = (date) => {
 
 .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
 .loading { text-align: center; padding: 20px; color: var(--secondary); }
+
+.badge-custom { background: #e056fd; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-right: 5px; }
+.mb-20 { margin-bottom: 20px; }
+.op-10 { opacity: 0.1; }
+.my-10 { margin: 10px 0; }
+.amount-lg { font-size: 20px; font-weight: 700; color: #4cd137; margin-top: 10px; }
+.alert.warn { background: rgba(255, 193, 7, 0.1); color: #ffc107; padding: 10px; border-radius: 8px; font-size: 12px; }
 </style>
